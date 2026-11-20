@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>신병 군병원</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: 한 화면 앱 — 위에서 내려다본 군병원 병실(16병상) + 옆(모바일은 아래) 임무·수사노트 패널. 낮은 형광등 민트, 밤은 비상구 불빛만 남는다. 단일 룩(병원 야간 크롬). */
+:root{
+  --chrome:#121a1b; --chrome-2:#1a2526; --line:#2c3b3c;
+  --ink:#e6efec; --mute:#9fb2ad; --dim:#64787a;
+  --tile:#dfe9e5; --tile-d:#cfdcd7; --wall:#eef3f0; --wall-d:#bccbc6;
+  --sheet:#9cc3d6; --sheet-d:#7ea9bf; --mattress:#f4f6f3; --curtain:#b8d6c6;
+  --gown:#a9c7d8; --gown-d:#86a8bb; --hair:#2a2f2e;
+  --exit:#35d07f; --signal:#e9c46a; --ghost:#e0533f; --ok:#7fd1a0;
+  --f-disp:"Black Han Sans","IBM Plex Sans KR","Apple SD Gothic Neo",sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--chrome);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5;margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--exit);outline-offset:2px}
+.app{max-width:1100px;margin:0 auto;padding-block:12px 20px;display:flex;flex-direction:column;gap:12px;min-height:100%}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.logo{font-family:var(--f-disp);font-size:24px;line-height:1;display:flex;align-items:center;gap:9px}
+.logo i{display:inline-block;width:16px;height:16px;position:relative}
+.logo i::before,.logo i::after{content:"";position:absolute;background:var(--ghost)}
+.logo i::before{left:6px;top:0;width:4px;height:16px}.logo i::after{top:6px;left:0;height:4px;width:16px}
+.logo small{font-family:var(--f-body);font-size:12px;color:var(--mute);font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-left:auto}
+.chip{border:1px solid var(--line);background:var(--chrome-2);border-radius:4px;padding:4px 10px;font-size:13px;white-space:nowrap}
+.clock{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-weight:600;font-size:15px;letter-spacing:.04em}
+.live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dim);margin-right:6px;vertical-align:1px}
+.live.on{background:var(--exit);box-shadow:0 0 0 3px rgba(53,208,127,.18)}
+.sched{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.slot{flex:0 0 auto;border:1px solid var(--line);background:transparent;border-radius:3px;padding:5px 9px;text-align:left;line-height:1.25}
+.slot small{display:block;font-family:var(--f-mono);font-size:11px;color:var(--dim)}
+.slot span{font-size:12.5px;color:var(--mute)}
+.slot.now{border-color:var(--exit);background:rgba(53,208,127,.09)}
+.slot.now span{color:var(--ink);font-weight:700}
+.slot.pv{border-color:var(--ink);background:rgba(230,239,236,.07)}
+.slot.pv span{color:var(--ink)}
+.slot.nt span{color:#e9a397}
+.pvbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;background:rgba(230,239,236,.06);border:1px dashed var(--mute);border-radius:4px;padding:6px 10px}
+.pvbar button{border:0;background:var(--ink);color:#121a1b;border-radius:3px;padding:3px 10px;font-weight:700;font-size:12.5px}
+.main{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:16px;align-items:start}
+.stage{width:min(470px,calc((100dvh - 190px) * .75));min-width:280px;max-width:100%;justify-self:center}
+@media (max-width:760px){.main{grid-template-columns:minmax(0,1fr)}.stage{width:100%;max-width:470px;min-width:0}}
+
+/* ward */
+.scene{position:relative;width:100%;aspect-ratio:3/4;max-width:100%;container-type:inline-size;overflow:hidden;border-radius:6px;
+  background:repeating-linear-gradient(0deg,var(--tile) 0 6.2cqw,var(--tile-d) 6.2cqw 6.35cqw),repeating-linear-gradient(90deg,transparent 0 6.2cqw,var(--tile-d) 6.2cqw 6.35cqw),var(--tile);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+.wallT{position:absolute;left:0;right:0;top:0;height:8%;background:var(--wall);border-bottom:.6cqw solid var(--wall-d)}
+.win{position:absolute;left:5%;width:24%;top:1.5%;height:4.8%;background:linear-gradient(180deg,#bfe3f3,#e6f5fb);border:.5cqw solid #9fb3ad;border-radius:.4cqw}
+.win::after{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:.4cqw solid #9fb3ad}
+.night-on .win{background:linear-gradient(180deg,#0b1424,#1a2840)}
+.night-on .win::before{content:"";position:absolute;right:18%;top:22%;width:2.4cqw;height:2.4cqw;border-radius:50%;background:#f2ead0;box-shadow:0 0 2cqw rgba(242,234,208,.6)}
+.tv{position:absolute;left:36%;width:18%;top:1.8%;height:4.2%;background:#141a1a;border-radius:.6cqw;box-shadow:0 0 0 .5cqw #6f7c78}
+.tv.glow{background:radial-gradient(ellipse at 50% 60%,#bfe7f5,#4b7d95 70%);box-shadow:0 0 0 .5cqw #6f7c78,0 3cqw 8cqw rgba(160,215,235,.35)}
+.tv.static{background:repeating-linear-gradient(0deg,#ddd 0 .3cqw,#555 .3cqw .6cqw);animation:stat .12s steps(2) infinite}
+@keyframes stat{to{background-position:0 .6cqw}}
+.roof{position:absolute;left:57%;width:8%;top:0;height:8%;background:#8a8f87;border-radius:0 0 .4cqw .4cqw}
+.roof span{position:absolute;inset:0;display:grid;place-items:center;font-size:1.8cqw;color:#f1f4f2;white-space:nowrap;font-weight:700;line-height:1.1;text-align:center}
+.wardsign{position:absolute;right:3%;top:1.6%;text-align:right;font-family:var(--f-disp);font-size:3.2cqw;color:#2f4a46;line-height:1}
+.wardsign small{display:block;font-family:var(--f-body);font-size:1.9cqw;color:#6e827d;margin-top:.4cqw}
+.station{position:absolute;left:31%;right:31%;bottom:0;height:7.5%;background:#cdd8d4;border-top:.6cqw solid #9fb0aa;display:grid;place-items:center;font-size:2.3cqw;color:#3c514c;font-weight:700}
+.fridge{position:absolute;left:2.5%;width:9%;bottom:0;height:7.5%;background:#e9eeec;border:.4cqw solid #a6b4af;border-bottom:0;display:grid;place-items:center;font-size:1.8cqw;color:#55665f;font-weight:700}
+.exit{position:absolute;right:3%;bottom:2%;background:var(--exit);color:#073b20;font-size:1.9cqw;font-weight:700;padding:.3cqw 1cqw;border-radius:.3cqw;z-index:8;box-shadow:0 0 0 rgba(53,208,127,0)}
+.night-on .exit{box-shadow:0 0 4cqw rgba(53,208,127,.65)}
+.bed{position:absolute;height:8.2%}
+.bed.L{left:2%;width:31%}.bed.R{left:67%;width:31%}
+.bed .hb{position:absolute;top:2%;bottom:2%;width:5%;background:#9aa8a3;border-radius:.4cqw}
+.bed .mt{position:absolute;top:0;bottom:0;background:var(--mattress);border-radius:.6cqw;box-shadow:inset 0 0 0 .3cqw #d5ddd9}
+.bed .pl{position:absolute;top:20%;bottom:20%;width:13%;background:#fff;border-radius:.7cqw;box-shadow:0 0 0 .2cqw #dfe5e2}
+.bed .sh{position:absolute;top:8%;bottom:8%;background:var(--sheet);border-radius:.5cqw;transition:all .6s ease;box-shadow:inset 0 -.4cqw 0 var(--sheet-d)}
+.bed .iv{position:absolute;top:-6%;width:1.6cqw;height:1.6cqw;border-radius:50%;background:#d8e9f1;border:.3cqw solid #8aa3ad}
+.bed .nm{position:absolute;bottom:-1.6cqw;font-size:1.6cqw;color:#6c7f7a;white-space:nowrap;font-weight:700}
+.bed.L .hb{left:0}.bed.R .hb{right:0}
+.bed.L .mt{left:5%;right:0}.bed.R .mt{right:5%;left:0}
+.bed.L .pl{left:8%}.bed.R .pl{right:8%}
+.bed.L .iv{left:3%}.bed.R .iv{right:3%}
+.bed.L .nm{left:6%}.bed.R .nm{right:6%}
+.bed.L .sh.open{left:22%;right:3%}.bed.R .sh.open{right:22%;left:3%}
+.bed.L .sh.fold{left:78%;right:3%}.bed.R .sh.fold{right:78%;left:3%}
+.curtain{position:absolute;left:65%;width:34%;top:10.8%;height:10.6%;border:0;padding:0;z-index:4;border-radius:.4cqw;
+  background:repeating-linear-gradient(90deg,var(--curtain) 0 2.2cqw,#a3c6b4 2.2cqw 2.6cqw);box-shadow:0 .4cqw 0 rgba(0,0,0,.12);transition:opacity .8s}
+.curtain::after{content:attr(data-label);position:absolute;inset:0;display:grid;place-items:center;font-size:2cqw;font-weight:700;color:#3b5b4c}
+.curtain.open{opacity:.25}
+.curtain:hover{filter:brightness(1.05)}
+.unit{position:absolute;width:0;height:0;transition:left 1.4s cubic-bezier(.5,.1,.3,1),top 1.4s cubic-bezier(.5,.1,.3,1);z-index:3}
+.body{position:absolute;left:0;top:0;width:7cqw;height:7cqw;margin:-3.5cqw 0 0 -3.5cqw;transition:transform .35s ease}
+.sho{position:absolute;left:5%;right:5%;top:30%;height:40%;background:var(--gown);border-radius:50%;box-shadow:inset 0 -.5cqw 0 var(--gown-d);
+  background-image:repeating-linear-gradient(90deg,transparent 0 .8cqw,rgba(255,255,255,.35) .8cqw 1.1cqw)}
+.hd{position:absolute;left:29%;right:29%;top:22%;bottom:34%;background:var(--hair);border-radius:50%}
+.tray{position:absolute;left:28%;right:28%;top:-14%;height:24%;background:#d6dbdd;border-radius:.4cqw;display:none}
+.unit.lie .sho{display:none}
+.unit.lie .hd{left:31%;right:31%;top:31%;bottom:31%}
+.unit.eat .tray{display:block}
+.unit.nurse .sho{background:#f3f4f2;background-image:none;box-shadow:inset 0 -.5cqw 0 #c9cfcc}
+.unit.doc .sho{background:#fbfbfa;background-image:none;box-shadow:inset 0 -.5cqw 0 #d1d6d3}
+.unit.ghost .sho{background:#cfd8dc;opacity:.75}
+.unit.ghost{opacity:.85}
+.face{position:absolute;left:0;top:0;width:5.4cqw;height:5.4cqw;margin:-2.7cqw 0 0 -2.7cqw;border-radius:50%;background:center/cover no-repeat var(--hair);box-shadow:0 0 0 .35cqw #263130;z-index:1}
+.unit.hasimg .hd{visibility:hidden}
+.tag{position:absolute;left:0;top:3.2cqw;transform:translateX(-50%);font-size:max(9px,2cqw);white-space:nowrap;background:rgba(18,26,27,.76);color:var(--ink);padding:0 .9cqw;border-radius:.6cqw;line-height:1.5}
+.unit.lie .tag{top:2.7cqw}
+.unit.me .tag{background:var(--exit);color:#08321b;font-weight:700}
+.unit.me .body::before{content:"";position:absolute;inset:-4%;border:.4cqw solid var(--exit);border-radius:50%}
+.unit.npc .tag{box-shadow:inset 0 0 0 1px rgba(169,199,216,.6)}
+.unit.nurse .tag{background:#f3f4f2;color:#20302d}
+.unit.possessed{z-index:7}
+.unit.possessed .body::after{content:"";position:absolute;inset:-18%;border-radius:50%;background:radial-gradient(circle,rgba(224,83,63,.45),transparent 65%);animation:pulse 1.6s ease-in-out infinite}
+.unit.me{z-index:7}
+@keyframes pulse{50%{transform:scale(1.18);opacity:.6}}
+.bub{position:absolute;left:0;bottom:3cqw;transform:translateX(var(--bx,-50%));background:#f6f8f6;color:#152120;font-weight:700;font-size:max(11px,2.6cqw);padding:.3cqw 1.3cqw;border-radius:1.3cqw;white-space:nowrap;animation:pop .25s ease-out;z-index:9}
+.bub::after{content:"";position:absolute;left:calc(-1 * var(--bx,-50%));bottom:-.9cqw;margin-left:-.9cqw;border:.9cqw solid transparent;border-bottom:0;border-top-color:#f6f8f6}
+.unit.possessed .bub{background:#2a0f0c;color:#ffb3a6}
+.unit.possessed .bub::after{border-top-color:#2a0f0c}
+@keyframes pop{from{transform:translateX(var(--bx,-50%)) scale(.6);opacity:0}to{transform:translateX(var(--bx,-50%)) scale(1);opacity:1}}
+.chk{position:absolute;left:2.3cqw;top:-3.9cqw;width:2.8cqw;height:2.8cqw;border-radius:50%;background:var(--ok);color:#0e2a1b;font-size:1.9cqw;font-weight:700;display:grid;place-items:center}
+.zz{position:absolute;left:1.8cqw;top:-3.6cqw;font-family:var(--f-mono);font-size:2.2cqw;color:#cfe0ee;opacity:.8;animation:zz 2.4s ease-in-out infinite}
+@keyframes zz{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-1.2cqw);opacity:.9}}
+.night{position:absolute;inset:0;pointer-events:none;z-index:6;background:radial-gradient(ellipse at 88% 96%,rgba(53,208,127,.16),transparent 30%),rgba(4,10,16,.74)}
+.night.flick{animation:flick 3.4s steps(1) infinite}
+@keyframes flick{0%,100%{opacity:1}47%{opacity:.82}48%{opacity:1}71%{opacity:.9}72%{opacity:1}}
+.solo{position:absolute;left:50%;top:9.4%;transform:translateX(-50%);font-size:max(10px,2.1cqw);color:#f0f4f2;background:rgba(18,26,27,.72);padding:.3cqw 1.6cqw;border-radius:2cqw;white-space:nowrap;z-index:8}
+/* panel */
+.panel{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--chrome-2);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
+.card.alert{border-color:rgba(224,83,63,.6);background:linear-gradient(180deg,rgba(224,83,63,.08),transparent 60%),var(--chrome-2)}
+.eyebrow{font-size:11.5px;letter-spacing:.12em;color:var(--exit);font-weight:700}
+.alert .eyebrow{color:#f08c7b}
+.h{font-family:var(--f-disp);font-size:26px;line-height:1.15;margin:4px 0 6px;text-wrap:balance}
+.p{color:var(--mute);margin:0 0 12px;max-width:54ch}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{border:1px solid var(--line);background:#223031;border-radius:4px;padding:9px 14px;font-weight:700}
+.btn:hover{background:#2b3c3d}
+.btn.pri{background:var(--exit);border-color:var(--exit);color:#07321b}
+.btn.red{background:var(--ghost);border-color:var(--ghost);color:#fff}
+.btn:disabled{opacity:.45;cursor:default}
+.prog{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:10px 0}
+.prog i{display:block;height:100%;background:var(--exit);transition:width .3s}
+.ok{color:var(--ok);font-weight:700}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.small{font-size:12px;color:var(--dim)}
+.big{font-family:var(--f-disp);font-size:40px;line-height:1;margin:6px 0 4px}
+.choices{display:flex;flex-direction:column;gap:6px}
+.choices .btn{text-align:left;font-weight:500}
+.quote{border-left:3px solid var(--exit);padding:6px 10px;margin:4px 0 10px;color:var(--ink);background:rgba(53,208,127,.06)}
+.report{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:5px}
+.report li{display:flex;gap:10px;font-size:13px;color:var(--mute)}
+.report .t{font-family:var(--f-mono);color:#f08c7b;flex:0 0 auto}
+.tray-ui{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;background:#b9c2c4;padding:7px;border-radius:8px;margin:4px 0 12px}
+.tray-ui div{background:#dde3e4;border-radius:5px;padding:8px 6px;color:#1f2b2a;font-size:12.5px;font-weight:500;text-align:center;min-height:42px;display:grid;place-items:center;line-height:1.25}
+.tray-ui .w2{grid-column:span 2}
+.tray-ui .lbl{display:block;font-size:10.5px;color:#5c6668;font-weight:400}
+.acts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.acts .btn[aria-pressed="true"]{background:var(--exit);color:#07321b;border-color:var(--exit)}
+.thermo{user-select:none;-webkit-user-select:none;touch-action:none}
+.notes{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
+.notes li{font-size:13px;line-height:1.5;padding:7px 10px;border-radius:4px;background:#152021;border:1px solid var(--line)}
+.notes li.lock{color:var(--dim);border-style:dashed;background:transparent}
+.notes b{color:#f08c7b;font-family:var(--f-mono);font-weight:600;margin-right:6px}
+.emotes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.emotes .btn{padding:8px 4px;font-size:13px}
+textarea{width:100%;min-height:76px;margin-top:4px;background:#0f1617;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:9px 10px;font:inherit;resize:vertical}
+.foot{font-size:12px;color:var(--dim);line-height:1.6}
+.teaser{margin-top:10px;padding:10px 12px;border-radius:4px;background:rgba(224,83,63,.1);border:1px solid rgba(224,83,63,.45);font-size:13px}
+/* gate */
+.gate{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(8,13,14,.88);backdrop-filter:blur(3px);
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.gbox{width:min(440px,100%);text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center}
+.gtitle{font-family:var(--f-disp);font-size:clamp(40px,11vw,58px);line-height:1}
+.gtitle small{display:block;font-family:var(--f-body);font-size:15px;color:#f08c7b;font-weight:700;margin-top:8px;letter-spacing:.04em}
+.gsub{color:var(--mute);margin:0}
+.band{width:100%;background:#f4f6f3;color:#1d2a28;border-radius:999px;padding:10px 26px 10px 22px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;align-items:center;text-align:left;font-family:var(--f-mono);font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.4);position:relative}
+.band::before{content:"";position:absolute;right:12px;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;background:#c9d2cf;box-shadow:inset 0 0 0 3px #aab6b2}
+.band .bc{grid-row:span 2;width:44px;height:30px;background:repeating-linear-gradient(90deg,#1d2a28 0 2px,transparent 2px 4px,#1d2a28 4px 5px,transparent 5px 8px)}
+.band input{width:100%;background:transparent;border:0;border-bottom:1.5px solid rgba(29,42,40,.35);font:600 18px var(--f-body);color:#1d2a28;padding:0 0 2px}
+.gate .btn{width:100%;padding:13px;font-size:16px}
+.loading{font-size:13px;color:var(--mute)}
+@media (prefers-reduced-motion:reduce){.unit,.body,.bed .sh,.curtain{transition:none}.bub,.zz,.night.flick,.unit.possessed .body::after,.tv.static{animation:none}}
+</style>
+<script>window.SINBYEONG_REALTIME_URL = null; // GitHub Pages(정적): 혼자 보기 모드. 실시간 서버를 두면 'wss://주소/realtime' 으로 변경</script>
+</head>
+<body>
+
+
+<div class="app">
+  <header class="bar">
+    <div class="logo"><i></i><span>신병 군병원</span> <small>국군양천병원 7병동</small></div>
+    <div class="chips">
+      <span class="chip"><span class="live" id="liveDot"></span><b id="wardName">병실 배정 전</b> · 입원 동기 <span id="headcount">0/6</span></span>
+      <span class="chip"><span class="clock" id="clock">--:--</span> <span class="small">KST</span></span>
+      <span class="chip" id="dayChip" title="퇴원일 12월 30일 · 신병 더 무비 개봉일">퇴원 D-</span>
+    </div>
+  </header>
+  <nav class="sched" id="sched" aria-label="병동 일과표"></nav>
+  <div class="pvbar" id="pvbar" hidden><span id="pvtext">미리보기 중</span><button id="pvexit" type="button">실제 시각으로</button></div>
+  <main class="main">
+    <div class="stage" data-comment-target>
+      <div class="scene" id="scene" aria-label="병실 평면도">
+        <div class="wallT"></div>
+        <div class="win"></div>
+        <div class="tv" id="tv"></div>
+        <div class="roof"><span>옥상<br>계단↑</span></div>
+        <div class="wardsign" id="sign">7병동<small>1호실</small></div>
+        <div id="beds"></div>
+        <button class="curtain" id="curtain" type="button" data-label="면회 사절 · 장기 입원" aria-label="장기 입원 환자 커튼"></button>
+        <div class="fridge">냉장고</div>
+        <div class="station">간호사실</div>
+        <div id="units"></div>
+        <div class="night" id="night" hidden></div>
+        <div class="exit">비상구</div>
+        <div class="solo" id="solo" hidden></div>
+      </div>
+    </div>
+    <aside class="panel">
+      <section class="card" id="task" aria-live="polite" data-comment-target></section>
+      <section class="card">
+        <div class="eyebrow">괴담 수사 노트 · <span id="clueCount">0/8</span></div>
+        <ul class="notes" id="notes"></ul>
+      </section>
+      <section class="card">
+        <div class="eyebrow">말 대신</div>
+        <p class="p" style="margin:4px 0 10px">병실엔 채팅이 없습니다. 같은 병실 동기에게는 이것만 보여요.</p>
+        <div class="emotes">
+          <button class="btn" data-emote="충성!" type="button">충성!</button>
+          <button class="btn" data-emote="하암…" type="button">하품</button>
+          <button class="btn" data-emote="아야야…" type="button">아야</button>
+          <button class="btn" data-emote="무서워…" type="button">무서워</button>
+        </div>
+      </section>
+      <section class="card" id="fbCard">
+        <div class="eyebrow">수정 의견</div>
+        <p class="p" style="margin:4px 0 10px">고칠 점이 보이면 남겨 주세요. 지금 보고 있는 화면과 시각이 함께 기록됩니다.</p>
+        <div class="row" style="margin-bottom:8px"><button class="btn" id="fbPin" type="button" hidden>평면도에 핀 꽂고 의견 남기기</button></div>
+        <label class="small" for="fbText">직접 적어서 보내기</label>
+        <textarea id="fbText" maxlength="1500" placeholder="예) 3시 33분 사건 때 환자 이름표가 너무 빨리 보여요"></textarea>
+        <div class="row" style="margin-top:8px"><button class="btn pri" id="fbCopy" type="button">의견 복사</button><span class="small" id="fbMsg">복사한 내용을 메일이나 메신저로 보내 주세요.</span></div>
+      </section>
+      <p class="foot">같은 병실로 부르려면 주소 끝의 <span class="mono" id="hashHint">#ward-1</span>을 함께 보내세요. 입원 동기 6명이 차면 다음 병실이 열립니다.<br>괴담 사건은 매일 밤 한국 시간 23:13 · 00:44 · 02:22 · 03:33 · 04:44에 일어납니다. 위 일과표의 '소등'을 누르면 바로 볼 수 있어요.<br>프로토타입 · 인물 이름은 영화 출연진 기준, 대사·단서는 체험용 창작으로 판권사 검수 전</p>
+    </aside>
+  </main>
+</div>
+
+<div class="gate" id="gate">
+  <div class="gbox">
+    <div class="gtitle">신병 군병원<small>군병원에 귀신이 산다</small></div>
+    <p class="gsub">훈련 중 사고로 신병즈 단체 입원.<br>훈련 없는 꿀 같은 병가인 줄 알았는데,<br>밤마다 이 병동에선 이상한 일이 벌어진다.</p>
+    <form class="band" id="gform">
+      <div class="bc"></div>
+      <label for="nameIn" style="font-size:10px;letter-spacing:.1em;opacity:.7">환자명 · 7병동 · 훈련 중 부상</label>
+      <input id="nameIn" maxlength="6" autocomplete="off" required>
+    </form>
+    <button class="btn pri" id="enterBtn" type="submit" form="gform">입원 수속하기</button>
+    <div class="loading" id="gload">병동 문 여는 중…</div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+};
+function hash(s){ let h=2166136261; for (const c of String(s)){ h^=c.charCodeAt(0); h=Math.imul(h,16777619); } return h>>>0; }
+const rnd = a => a[Math.floor(Math.random()*a.length)];
+const escapeHTML = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const josa = (w,a,b) => { const c = w.charCodeAt(w.length-1); if (c < 0xAC00 || c > 0xD7A3) return w + a + '(' + b + ')'; return w + ((c - 0xAC00) % 28 ? a : b); };
+const cleanName = s => String(s || '').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁯]/g,'').slice(0,6) || '동기';
+
+/* ---------- 병동 일과표 (KST) ---------- */
+const SCHED = [
+  {s:'06:00',e:'06:30',k:'wake',  n:'기상'},
+  {s:'06:30',e:'07:30',k:'vitals',n:'체온·혈압 측정'},
+  {s:'07:30',e:'08:30',k:'meal',  n:'아침식사'},
+  {s:'08:30',e:'09:00',k:'free',  n:'자유시간'},
+  {s:'09:00',e:'10:00',k:'rounds',n:'군의관 회진'},
+  {s:'10:00',e:'12:00',k:'rehab', n:'재활 치료'},
+  {s:'12:00',e:'13:00',k:'meal',  n:'점심식사'},
+  {s:'13:00',e:'17:30',k:'free',  n:'꿀 같은 자유시간'},
+  {s:'17:30',e:'18:30',k:'meal',  n:'저녁식사'},
+  {s:'18:30',e:'21:00',k:'free',  n:'자유시간'},
+  {s:'21:00',e:'22:00',k:'meds',  n:'투약·점호'},
+  {s:'22:00',e:'06:00',k:'night', n:'소등 · 괴담'},
+];
+const toMin = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
+SCHED.forEach(p => { p.sm = toMin(p.s); p.em = toMin(p.e); });
+const DISCHARGE = '2026-12-30'; // 퇴원일 = 신병 더 무비 개봉일
+const kst = () => new Date(Date.now() + 9*3600e3);
+const ymd = d => d.toISOString().slice(0,10);
+const dayBefore = s => ymd(new Date(Date.parse(s) - 864e5));
+function nowInfo(){
+  const d = kst(); const m = d.getUTCHours()*60 + d.getUTCMinutes();
+  const idx = SCHED.findIndex(p => p.sm < p.em ? (m >= p.sm && m < p.em) : (m >= p.sm || m < p.em));
+  const p = SCHED[idx];
+  let date = ymd(d);
+  if (p.k === 'night' && m < 360) date = dayBefore(date);
+  const left = ((p.em - m) + 1440) % 1440 || 1440;
+  return { idx, p, m, d, date, key: date + '@' + p.s, left };
+}
+
+/* ---------- 인물 (교체 지점) ----------
+ * 이름은 영화 '신병 더 무비: 군병원에 귀신이 산다' 출연진 배역 기준. 계급은 확인된 것만 표기.
+ * 대사는 체험용 창작 — 판권사 검수 후 교체. img: 라이선스 얼굴 이미지(data URI 또는 URL).
+ * bed: 0~5 입원 동기(실제 접속자), 8 장기 입원 환자, 나머지 신병즈. */
+const NPCS = [
+  { id:'ms', bed:9,  rank:'상병', name:'박민석', img:'assets/faces/park-minseok.jpg',
+    lines:{ wake:['꿀잠 잤다!','다리 아직 아프다…'], vitals:['저 열 있나요?'], meal:['환자식도 맛있네'], rounds:['언제 퇴원해요?'], rehab:['목발 어렵다…'], free:['여기 천국이다','훈련 없어서 좋다'], meds:['약 쓰다…'], night:['무서워서 못 자겠어','…방금 뭐였어?'] },
+    replies:['오, 기합 좋다!','나도 충성!','같이 버티자'] },
+  { id:'dh', bed:10, rank:'', name:'임다혜', img:'assets/faces/im-dahye.jpg',
+    lines:{ wake:['…'], vitals:['36.5. 정상.'], meal:['(조용히 먹는 중)'], rounds:['…괜찮습니다'], rehab:['…'], free:['재밌네.','(TV 보는 중)'], meds:['…'], night:['…들었어?'] },
+    replies:['…응.','재밌네.','(끄덕)'] },
+  { id:'bn', bed:11, rank:'일병', name:'문빛나리', img:'assets/faces/moon-bitnari.jpg',
+    lines:{ wake:['5분만…','왜 다리에 멍이…'], vitals:['체온계 고장 아니에요?'], meal:['이걸로 배가 차?','간식 어디 갔어'], rounds:['계속 입원하고 싶습니다'], rehab:['이거 꼭 해야 돼?'], free:['평생 여기 살래','매점 갈 사람'], meds:['약 하나 더 주세요'], night:['배고파…'] },
+    replies:['오 신입 환자!','ㅋㅋ 귀엽네','나한테 경례해'] },
+  { id:'ym', bed:12, rank:'일병', name:'성윤모', img:'assets/faces/seong-yunmo.jpg',
+    lines:{ wake:['남의 부대 애들이랑 한 병실이네'], vitals:['나는 괜찮아'], meal:['많이 먹어 둬'], rounds:['다른 애들 먼저 봐 주세요'], rehab:['같이 걷자'], free:['저 커튼 안에 누가 있는 거야?','밤엔 일찍 자'], meds:['약 먹었어?'], night:['저 커튼… 움직였어'] },
+    replies:['오, 좋은데?','힘내라','잘 지내 보자'] },
+  { id:'ig', bed:13, rank:'', name:'최일구', img:'assets/faces/choi-ilgu.jpg',
+    lines:{ wake:['다들 어젯밤 기억나?'], vitals:['혈압 재면 나 웃는다'], meal:['남길 거면 나 줘'], rounds:['선생님, 저 아직 아파요'], rehab:['천천히 해, 천천히'], free:['이거 흥미진진한데','소문 들었어?'], meds:['약 먹고 자라'], night:['오, 재밌어지는데…'] },
+    replies:['오 그래 그래','재밌네 너','충성은 됐고'] },
+  { id:'sj', bed:14, rank:'', name:'오석진', img:null,
+    lines:{ wake:['어젯밤 누가 돌아다녔대'], vitals:['간호장교님 오셨다'], meal:['오늘 죽이다'], rounds:['괜찮습니다!'], rehab:['하나, 둘'], free:['이 병원 소문 알아?','3시 33분 얘기 들었어?'], meds:['약 받았습니다'], night:['…쉿'] },
+    replies:['어 반갑다','힘내','오케이'] },
+  { id:'bnm', bed:15, rank:'', name:'최병남', img:null,
+    lines:{ wake:['잘 잤…나?'], vitals:['맥박 빠르대'], meal:['국 맛있다'], rounds:['괜찮아요'], rehab:['다리 풀린다'], free:['낮잠 최고','TV 채널 돌리지 마'], meds:['네네'], night:['zzz…'] },
+    replies:['어어','반갑다','좋아'] },
+  { id:'cs', bed:6,  rank:'', name:'강찬석', img:null,
+    lines:{ wake:['시끄러워'], vitals:['빨리 재'], meal:['이게 밥이야?'], rounds:['언제 나가'], rehab:['이딴 걸 왜'], free:['건드리지 마','TV 소리 줄여'], meds:['…'], night:['누가 자꾸 깨워'] },
+    replies:['뭐.','…','어'] },
+  { id:'dw', bed:7,  rank:'', name:'김동우', img:null,
+    lines:{ wake:['밤에 무슨 소리 안 났어요?'], vitals:['저 손 떨려요'], meal:['밥이 안 넘어가'], rounds:['밤에 잠을 못 자요'], rehab:['천천히 할게요'], free:['혼자 있기 싫어','불 끄지 마요'], meds:['수면제 주시면 안 돼요?'], night:['무, 무서워…'] },
+    replies:['아, 안녕','같이 있어 줘','고마워'] },
+];
+const NURSE = { id:'jy', rank:'간호장교', name:'유정연', img:null,
+  lines:{ wake:['다들 일어나세요'], vitals:['팔 걷어 주세요','체온 잴게요'], meal:['남기지 마세요'], rounds:['군의관님 오십니다'], rehab:['무리하지 마세요'], free:['병실에서 뛰지 마세요'], meds:['약 먹는 거 확인할게요','밤엔 병실 밖으로 나오지 마세요'], night:['…다들 자고 있죠?','3시 33분엔 순찰 안 돌아요'] } };
+const PATIENT = { id:'jh', name:'유재훈', img:null }; // 장기 입원 환자 — 정체는 단서로 밝혀짐
+const NPC_BEDS = new Set(NPCS.map(n => n.bed).concat([8]));
+const HUMAN_MAX = 6;
+const npcLabel = n => (n.rank ? n.rank + ' ' : '') + n.name;
+
+/* ---------- 괴담 ---------- */
+const SLOTS = ['23:13','00:44','02:22','03:33','04:44'].map(t => ({ t, sm: toMin(t) }));
+const EV = {
+  roof:   { n:'옥상으로 가는 발소리', x:61, y:11, rot:0,   lines:['올라가야 해…','위에서 누가 불러'] },
+  binge:  { n:'간호사실 냉장고 앞', x:15, y:88.5, rot:-90, lines:['배고파… 더…','이거 다 내 거야'] },
+  march:  { n:'불 꺼진 복도의 제식훈련', x:50, y:50, rot:0, lines:['좌향좌…','하나, 둘…','우향우…'], march:true },
+  whisper:{ n:'커튼 앞의 속삭임', x:59, y:16, rot:90, lines:['거기 누구 있어요?','…네, 알겠습니다'] },
+  window: { n:'3시 33분, 창가의 환자', x:17, y:10.5, rot:0, lines:['…','집에 가고 싶다'], patient:true },
+};
+function nightPlan(date){
+  const types = ['roof','binge','march','whisper'];
+  const ppl = NPCS.map(n => n.id);
+  const sh = (arr, seed) => arr.map((v,i) => [hash(seed + v + i), v]).sort((a,b) => a[0]-b[0]).map(x => x[1]);
+  const t = sh(types, date + 't'), who = sh(ppl, date + 'w');
+  return SLOTS.map((s,i) => i === 3 ? { i, t:s.t, sm:s.sm, type:'window', who:null } : { i, t:s.t, sm:s.sm, type: t[i > 3 ? 3 : i], who: who[i > 3 ? 3 : i] });
+}
+function activeEvent(v){
+  if (v.p.k !== 'night') return null;
+  const plan = nightPlan(v.preview ? nowInfo().date : v.date);
+  if (v.preview) { const i = Math.floor(Date.now()/11000) % 5; return { ...plan[i], key:'preview#'+i, left:null }; }
+  for (const e of plan) {
+    const diff = ((v.m - e.sm) + 1440) % 1440;
+    if (diff < 30) return { ...e, key: v.date + '#' + e.i, left: 30 - diff };
+  }
+  return null;
+}
+function nextEventIn(v){
+  const plan = nightPlan(v.date); let best = 1e9;
+  for (const e of plan) { const d = ((e.sm - v.m) + 1440) % 1440; if (d > 0 && d < best) best = d; }
+  return best;
+}
+const npcById = id => NPCS.find(n => n.id === id);
+
+/* ---------- 단서 ---------- */
+const CLUES = [
+  { id:'roof',    hint:'밤, 옥상 계단에서' },
+  { id:'binge',   hint:'밤, 냉장고 앞에서' },
+  { id:'march',   hint:'밤, 복도 한가운데서' },
+  { id:'whisper', hint:'밤, 커튼 앞에서' },
+  { id:'window',  hint:'3시 33분, 창가에서' },
+  { id:'rounds',  hint:'회진 때 군의관에게' },
+  { id:'chart',   hint:'자유시간, 커튼 너머에서' },
+  { id:'vitals',  hint:'아침 측정 때 간호장교에게' },
+];
+let clues = {};
+try { clues = JSON.parse(store.get('gh.clues') || '{}') || {}; } catch(e) { clues = {}; }
+function addClue(id, text){
+  if (clues[id]) return false;
+  clues[id] = { t:text, at: Date.now() }; store.set('gh.clues', JSON.stringify(clues));
+  return true;
+}
+function clueText(type, who, t){
+  const nm = who ? npcLabel(npcById(who)) : '';
+  return ({
+    roof:   `${t}, ${josa(nm,'이','가')} 옥상 계단 문 앞에 서 있었다. 아침에 물어보니 아무것도 기억하지 못한다.`,
+    binge:  `${t}, ${josa(nm,'이','가')} 간호사실 냉장고를 비웠다. 평소엔 손도 안 대던 음식까지.`,
+    march:  `${t}, ${josa(nm,'이','가')} 불 꺼진 복도에서 혼자 제식훈련을 했다. 구령은 아무도 하지 않았다.`,
+    whisper:`${t}, ${josa(nm,'이','가')} 장기 입원 환자의 커튼 앞에서 누군가와 대화했다. 커튼 안은 조용했다.`,
+    window: `${t}, 커튼 뒤 장기 입원 환자가 창가에 서 있었다. 환자복 명찰이 비어 있다.`,
+  })[type];
+}
+
+/* ---------- state ---------- */
+const SUR = ['김','이','박','최','정','강','조','윤','장','임','한','오','서','신','권','황'];
+const GIV = ['민준','도현','지호','건우','현우','준서','우진','선우','태윤','시우','하준','유찬','재윤','은호'];
+const S = {
+  room:null, entered:false, ward:null, bed:null,
+  name:(store.get('gh.name') || store.get('sb.name') || (rnd(SUR)+rnd(GIV))).slice(0,6),
+  preview:null, done:{}, bubbles:{}, seen:{}, act:'bed', steps:0, lastFoot:null, wobble:false,
+  thermo:{ t0:0, val:null }, roundsAns:null, chartOpen:false, ate:{}
+};
+const pres = { v:2, ward:null, bed:null, name:S.name, emote:null, emoteAt:0, act:'bed', steps:0, saw:null, done:null };
+function push(patch){
+  Object.assign(pres, patch);
+  if (S.room && S.entered) S.room.presence(patch).catch(()=>{});
+  render();
+}
+function view(){
+  const n = nowInfo();
+  if (S.preview == null) return n;
+  const p = SCHED[S.preview];
+  return { idx:S.preview, p, m:p.sm, d:n.d, date:n.date, key:'preview@'+p.s, left:null, preview:true };
+}
+function finish(v){ S.done[v.key] = true; if (!v.preview) push({ done: v.key }); else render(); }
+
+/* ---------- 사람 목록 ---------- */
+function people(v){
+  const list = [];
+  if (S.room) for (const p of S.room.peers()) {
+    if (p.sameTab) continue;
+    const pr = p.presence || {};
+    if (pr.ward !== S.ward || typeof pr.bed !== 'number' || pr.bed < 0 || pr.bed > 5) continue;
+    list.push({ peer:p.peer, presence:pr });
+  }
+  if (S.entered && S.bed != null) list.push({ peer:'me', isMe:true, presence:pres });
+  return list;
+}
+
+/* ---------- 위치 ---------- */
+const bedTop = b => 11.6 + (b % 8) * 9.4;
+const bedL = b => b < 8;
+function bedSpot(b, pose){
+  const L = bedL(b), y = bedTop(b) + 4.1;
+  if (pose === 'lie') return { x: L ? 8.6 : 91.4, y, rot:0, pose:'lie' };
+  if (pose === 'sit') return { x: L ? 26 : 74, y, rot:0, pose:'sit' };
+  return { x: L ? 39 : 61, y, rot: L ? 90 : -90, pose:'stand' };
+}
+function slotIndex(b){ return b; }
+function actSpot(act, i){
+  if (act === 'tv') return { x: 39 + (i%5)*5.5, y: 14 + Math.floor(i/5)*5.5, rot:0, pose:'stand' };
+  if (act === 'lounge') return { x: 36 + (i%5)*7, y: 87 - Math.floor(i/5)*5, rot:180, pose:'stand' };
+  if (act === 'peek') return { x: 59, y: 16, rot:90, pose:'stand' };
+  return null;
+}
+function dayPose(k, b, who, v, i, extra){
+  const tick = Math.floor(Date.now()/1000);
+  if (k === 'wake') return bedSpot(b, extra.lazy ? 'lie' : 'sit');
+  if (k === 'vitals' || k === 'meds') return bedSpot(b, 'sit');
+  if (k === 'meal') { const s = bedSpot(b, 'sit'); s.pose = 'eat'; return s; }
+  if (k === 'rounds') return bedSpot(b, 'lie');
+  if (k === 'rehab') {
+    if (extra.steps != null) return { x: bedL(b) ? 45 : 55, y: Math.max(14, 84 - extra.steps * 3.4), rot:0, pose:'stand' };
+    return { x: i % 2 ? 55 : 45, y: 16 + ((tick*2 + i*11) % 66), rot: 0, pose:'stand' };
+  }
+  if (k === 'free') return actSpot(extra.act, i) || bedSpot(b, extra.act === 'nap' ? 'lie' : 'sit');
+  return bedSpot(b, 'lie');
+}
+
+/* ---------- static build ---------- */
+const bedEls = [];
+(function(){
+  const host = $('beds');
+  for (let b=0;b<16;b++){
+    const el = document.createElement('div');
+    el.className = 'bed ' + (bedL(b) ? 'L' : 'R');
+    el.style.top = bedTop(b) + '%';
+    el.innerHTML = '<div class="hb"></div><div class="mt"></div><div class="pl"></div><div class="sh fold"></div><div class="iv"></div><div class="nm"></div>';
+    host.appendChild(el); bedEls.push(el);
+  }
+  const sc = $('sched');
+  SCHED.forEach((p,i) => {
+    const b = document.createElement('button'); b.type='button'; b.className = 'slot' + (p.k === 'night' ? ' nt' : '');
+    b.innerHTML = '<small></small><span></span>';
+    b.querySelector('small').textContent = p.s; b.querySelector('span').textContent = p.n;
+    b.addEventListener('click', () => { S.preview = (nowInfo().idx === i) ? null : i; resetLocal(); render(); });
+    sc.appendChild(b);
+  });
+})();
+function resetLocal(){ S.steps = 0; S.lastFoot = null; S.thermo = { t0:0, val:null }; S.roundsAns = null; S.chartOpen = false; }
+$('pvexit').addEventListener('click', () => { S.preview = null; resetLocal(); render(); });
+
+/* ---------- 식단 ---------- */
+const MAIN = ['흰죽','소고기죽','야채죽','쌀밥','잡곡밥'];
+const SOUP = ['맑은 무국','미역국','콩나물국','감잣국','계란국'];
+const SIDE = ['계란찜','두부조림','시금치나물','생선구이','닭가슴살조림','감자채볶음','연근조림','백김치'];
+const DES = ['요구르트','두유','바나나','사과 반쪽'];
+function menu(v){
+  const sd = hash(v.key);
+  const pk = (a,o) => a[(sd >>> o) % a.length];
+  const sides = []; for (let o=0; sides.length<3 && o<30; o+=3){ const x = pk(SIDE,o); if (!sides.includes(x)) sides.push(x); }
+  return [pk(MAIN,0), pk(SOUP,5), ...sides, pk(DES,13)];
+}
+
+/* ---------- 임무 패널 ---------- */
+function remainText(v){ return v.left != null ? `${Math.floor(v.left/60) ? Math.floor(v.left/60)+'시간 ' : ''}${v.left%60}분 남음` : '미리보기'; }
+function taskHTML(v, ev){
+  const k = v.p.k, done = !!S.done[v.key];
+  const head = (title, sub, alert) => `<div class="eyebrow">${v.p.s}–${v.p.e} · ${remainText(v)}</div><div class="h">${title}</div><p class="p">${sub}</p>`;
+  if (!S.entered) return head(v.p.n, '입원 수속을 마치면 지금 일과에 바로 합류합니다.');
+  if (k === 'wake') {
+    const plan = nightPlan(dayBefore(v.date));
+    const items = plan.map(e => {
+      const c = clues[e.type] && clues[e.type].key === (dayBefore(v.date) + '#' + e.i);
+      const who = e.type === 'window' ? '장기 입원 환자' : (c ? npcLabel(npcById(e.who)) : '누군가');
+      return `<li><span class="t">${e.t}</span><span>${who} · ${EV[e.type].n}</span></li>`;
+    }).join('');
+    return head('기상 · 밤사이 병동 기록', '간호장교가 커튼을 걷습니다. 어젯밤 당직 일지에 이상 행동이 다섯 건 적혀 있어요. 직접 보지 못한 사건은 누가 했는지 알 수 없습니다.')
+      + `<ul class="report">${items}</ul>`
+      + (done ? '<div class="ok">기상 완료. 다들 어젯밤 일을 기억하지 못합니다.</div>' : '<button class="btn pri" data-act="wake" type="button">일어나기</button>');
+  }
+  if (k === 'vitals') {
+    const th = S.thermo;
+    const who = npcById(nightPlan(dayBefore(v.date))[0].who);
+    if (th.val) {
+      return head('체온·혈압 측정', '간호장교 유정연이 병상을 돌며 활력징후를 잽니다.')
+        + `<div class="big mono">${th.val}℃</div><div class="quote">유정연: 정상이에요. …근데 어젯밤 ${npcLabel(who)} 체온이 잠깐 34도까지 떨어졌대요. 기계 고장이겠죠?</div>`
+        + '<div class="ok">측정 완료</div>';
+    }
+    return head('체온·혈압 측정', '간호장교 유정연이 체온계를 건넵니다. 버튼을 3초 동안 누르고 있으세요.')
+      + `<div class="big mono" id="thv">--.-℃</div><button class="btn pri thermo" id="thermo" type="button">눌러서 체온 재기</button>`;
+  }
+  if (k === 'meal') {
+    const it = menu(v), st = S.ate[v.key] || 0;
+    return head(v.p.n, '환자식이 나왔습니다. 어젯밤 냉장고 사건 이후로 병동 간식이 금지됐어요.')
+      + `<div class="tray-ui"><div class="w2"><span><span class="lbl">주식</span>${it[0]}</span></div><div class="w2"><span><span class="lbl">국</span>${it[1]}</span></div><div><span>${it[2]}</span></div><div><span>${it[3]}</span></div><div><span>${it[4]}</span></div><div><span><span class="lbl">후식</span>${it[5]}</span></div></div>`
+      + (done ? '<div class="ok">다 먹었습니다. 문빛나리 일병이 식판을 노려봅니다.</div>' : `<button class="btn pri" data-act="eat" type="button">${st ? '다 먹었습니다' : '잘 먹겠습니다'}</button>`);
+  }
+  if (k === 'rounds') {
+    const A = {
+      leg:  '군의관: 뼈는 잘 붙고 있어. 재활 빠지지 마.',
+      food: '군의관: 병원 밥은 원래 그래. 참아.',
+      night:'군의관: …꿈이겠지. 그리고 그 커튼 쳐진 침대 얘기는 꺼내지 마. 내 담당 아니야.',
+    };
+    if (S.roundsAns) return head('군의관 회진', '군의관이 차트를 넘기며 병상 옆에 섭니다.') + `<div class="quote">${A[S.roundsAns]}</div><div class="ok">회진 끝</div>`;
+    return head('군의관 회진', '군의관이 묻습니다. "어디 불편한 데 없나?"')
+      + '<div class="choices"><button class="btn" data-act="ans" data-a="leg" type="button">다리가 아직 아픕니다</button><button class="btn" data-act="ans" data-a="food" type="button">밥이 좀 부족합니다</button><button class="btn" data-act="ans" data-a="night" type="button">밤에 이상한 걸 봤습니다</button></div>';
+  }
+  if (k === 'rehab') {
+    const need = S.lastFoot === '왼발' ? '오른발' : '왼발';
+    return head('재활 치료 · 목발 걷기', '복도 끝까지 목발로 걸어갑니다. 왼발과 오른발을 번갈아 누르세요. 같은 발을 두 번 누르면 휘청합니다.')
+      + `<div class="prog"><i style="width:${Math.min(20,S.steps)/20*100}%"></i></div>`
+      + `<div class="small mono">${Math.min(20,S.steps)}/20걸음${S.wobble ? ' · <span style="color:#f08c7b">휘청!</span>' : ''}</div>`
+      + (done ? '<div class="ok">복도 완주. 재활 치료 끝.</div>' : `<div class="row" style="margin-top:10px"><button class="btn${need==='왼발'?' pri':''}" data-act="foot" data-f="왼발" type="button">왼발</button><button class="btn${need==='오른발'?' pri':''}" data-act="foot" data-f="오른발" type="button">오른발</button></div>`);
+  }
+  if (k === 'free') {
+    const A = [['bed','침대에서 뒹굴기'],['nap','낮잠'],['tv','TV 보기'],['lounge','매점·휴게실'],['peek','커튼 너머 엿보기']];
+    let extra = '';
+    if (S.act === 'peek') extra = `<div class="quote">커튼 틈으로 침대 발치의 차트가 보입니다. 환자명 칸은 ${clues.chart ? '<b>유재훈</b>' : '희미해서 읽을 수 없고'}, 입원일 칸은 지워져 있습니다. 소속 부대 칸에는 '신화'라고만 적혀 있어요.</div>`;
+    return head(v.p.n, '훈련도 점호도 없는 시간. 다들 이 시간만 기다립니다. 같은 병실 동기들에게도 내가 어디 있는지 보여요.')
+      + `<div class="acts">${A.map(([id,n]) => `<button class="btn" data-act="act" data-v="${id}" aria-pressed="${S.act===id}" type="button">${n}</button>`).join('')}</div>` + extra;
+  }
+  if (k === 'meds') {
+    return head('투약·점호', '간호장교 유정연이 약을 나눠 주며 인원을 셉니다. "오늘 밤엔 병실 밖으로 나오지 마세요."')
+      + (done ? '<div class="ok">투약 확인. 22시에 소등합니다.</div>' : '<button class="btn pri" data-act="meds" type="button">약 먹기</button>');
+  }
+  // night
+  if (ev) {
+    const e = EV[ev.type];
+    const who = ev.type === 'window' ? '장기 입원 환자' : npcLabel(npcById(ev.who));
+    const ppl = people(v);
+    const saw = ppl.filter(p => p.presence.saw === ev.key).length;
+    const mine = pres.saw === ev.key || (ev.key.startsWith('preview') && S.done[ev.key]);
+    return `<div class="eyebrow">${ev.t} · 괴담 발생${ev.left != null ? ' · ' + ev.left + '분 동안' : ''}</div><div class="h">${e.n}</div>`
+      + `<p class="p">${josa(who,'이','가')} ${ev.type === 'window' ? '커튼 밖으로 나왔습니다.' : '잠든 채로 일어났습니다.'} 깨우지 말고 지켜보세요. 이 병실 목격자 ${saw}명.</p>`
+      + (mine ? '<div class="ok">목격했습니다. 수사 노트에 적었어요.</div>' : '<button class="btn red" data-act="witness" type="button">숨죽이고 목격하기</button>');
+  }
+  const n = v.preview ? null : nextEventIn(v);
+  return head('소등', `조용합니다. 너무 조용해요.${n != null ? ` 다음 이상 징후까지 약 ${n}분.` : ''} 간호장교 유정연이 손전등을 들고 복도를 돕니다.`)
+    + '<div class="row"><button class="btn" data-act="toss" type="button">자는 척하기</button></div>';
+}
+function cardIsAlert(v, ev){ return v.p.k === 'night' && !!ev; }
+
+/* ---------- 수사 노트 ---------- */
+function renderNotes(){
+  const n = Object.keys(clues).length;
+  $('clueCount').textContent = `${n}/${CLUES.length}`;
+  $('notes').innerHTML = CLUES.map((c,i) => clues[c.id]
+    ? `<li><b>${String(i+1).padStart(2,'0')}</b>${escapeHTML(clues[c.id].t)}</li>`
+    : `<li class="lock"><b>${String(i+1).padStart(2,'0')}</b>??? · ${c.hint}</li>`).join('')
+    + (n >= CLUES.length ? '<li class="teaser">단서를 모두 모았습니다. 장기 입원 환자 유재훈은 누구일까요? 진실은 12월 30일, 극장에서.</li>' : '');
+}
+
+/* ---------- render ---------- */
+const unitEls = new Map();
+let lastTaskSig = '', lastNotes = '';
+function unitEl(id, img){
+  let el = unitEls.get(id);
+  if (!el) {
+    el = document.createElement('div'); el.className = 'unit';
+    el.innerHTML = '<div class="body"><div class="tray"></div><div class="sho"></div><div class="hd"></div></div><div class="tag"></div>';
+    if (img && !img.startsWith('%%')) { const f = document.createElement('div'); f.className = 'face'; f.style.backgroundImage = `url("${img}")`; el.appendChild(f); el.classList.add('hasimg'); }
+    $('units').appendChild(el); unitEls.set(id, el);
+  }
+  return el;
+}
+function placeUnit(id, s, opts){
+  const el = unitEl(id, opts.img); opts.seen.add(id);
+  el.style.left = s.x + '%'; el.style.top = s.y + '%';
+  el.querySelector('.body').style.transform = `rotate(${s.rot||0}deg)`;
+  el.classList.toggle('lie', s.pose === 'lie');
+  el.classList.toggle('eat', s.pose === 'eat');
+  ['me','npc','nurse','doc','ghost','possessed'].forEach(c => el.classList.toggle(c, !!opts[c]));
+  el.style.setProperty('--bx', s.x < 24 ? '-14%' : s.x > 76 ? '-86%' : '-50%');
+  el.querySelector('.tag').textContent = opts.label;
+  const now = Date.now(); const bb = S.bubbles[id];
+  let bub = el.querySelector('.bub');
+  if (bb && bb.until > now) { if (!bub || bub.textContent !== bb.t) { if (bub) bub.remove(); bub = document.createElement('div'); bub.className = 'bub'; bub.textContent = bb.t; el.appendChild(bub); } }
+  else if (bub) bub.remove();
+  let zz = el.querySelector('.zz');
+  if (s.pose === 'lie' && opts.sleep && !zz) { zz = document.createElement('div'); zz.className = 'zz'; zz.textContent = 'z z'; el.appendChild(zz); }
+  if (!(s.pose === 'lie' && opts.sleep) && zz) zz.remove();
+  let chk = el.querySelector('.chk');
+  if (opts.check && !chk) { chk = document.createElement('div'); chk.className = 'chk'; chk.textContent = '✓'; el.appendChild(chk); }
+  if (!opts.check && chk) chk.remove();
+}
+function render(){
+  const v = view(), n = nowInfo(), k = v.p.k;
+  const ev = activeEvent(v);
+  const ppl = people(v);
+  const now = Date.now();
+  // header
+  const d = n.d; $('clock').textContent = String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
+  const dd = Math.round((Date.parse(DISCHARGE) - Date.parse(ymd(d))) / 864e5);
+  $('dayChip').textContent = dd > 0 ? `퇴원 D-${dd}` : dd === 0 ? '오늘 퇴원 · 신병 더 무비 개봉' : '퇴원 완료';
+  $('wardName').textContent = S.ward ? `7병동 ${S.ward}호실` : '병실 배정 전';
+  $('headcount').textContent = `${ppl.length}/${HUMAN_MAX}`;
+  $('liveDot').className = 'live' + (S.room && S.room.connected() ? ' on' : '');
+  $('sign').firstChild.nodeValue = '7병동';
+  $('sign').querySelector('small').textContent = (S.ward || 1) + '호실';
+  $('hashHint').textContent = '#ward-' + (S.ward || 1);
+  [...$('sched').children].forEach((b,i) => { b.classList.toggle('now', i === n.idx); b.classList.toggle('pv', S.preview === i); });
+  $('pvbar').hidden = S.preview == null;
+  if (S.preview != null) $('pvtext').textContent = k === 'night' ? '미리보기: 소등 · 오늘 밤 사건 다섯 개가 11초마다 차례로 재생돼요' : `미리보기: ${v.p.n} (${v.p.s}) · 동기들은 실제 시각 일과에 있어요`;
+  // scene state
+  const night = k === 'night';
+  $('scene').classList.toggle('night-on', night);
+  $('night').hidden = !night;
+  $('night').classList.toggle('flick', !!ev);
+  const tv = $('tv'); tv.classList.toggle('glow', k === 'free' && !night); tv.classList.toggle('static', night && ev && ev.type === 'whisper');
+  const cur = $('curtain'); cur.classList.toggle('open', !!(ev && ev.type === 'window'));
+  cur.dataset.label = (ev && ev.type === 'window') ? '' : (clues.chart ? '유재훈 · 장기 입원' : '면회 사절 · 장기 입원');
+  // NPC speech every 7s
+  const slot = Math.floor(now/7000);
+  if (slot !== S.npcSlot) {
+    S.npcSlot = slot;
+    if (!night) {
+      const pool = NPCS.concat(hash('n'+slot) % 4 === 0 ? [NURSE] : []);
+      const c = pool[hash('s'+slot) % pool.length]; const ls = c.lines[k] || [];
+      if (ls.length) S.bubbles[c.id] = { t: ls[hash(c.id+slot) % ls.length], until: now + 3800 };
+    } else if (ev) {
+      const id = ev.type === 'window' ? PATIENT.id : ev.who;
+      const ls = EV[ev.type].lines; S.bubbles[id] = { t: ls[slot % ls.length], until: now + 4200 };
+    } else if (hash('q'+slot) % 3 === 0) {
+      S.bubbles[NURSE.id] = { t: rnd(NURSE.lines.night), until: now + 3600 };
+    }
+  }
+  // beds
+  const occupant = {};
+  ppl.forEach(p => occupant[p.presence.bed] = { label: cleanName(p.presence.name) });
+  NPCS.forEach(c => occupant[c.bed] = { label: c.name });
+  const seen = new Set();
+  const lyingBeds = new Set();
+  // NPCs
+  const lazyId = nightPlan(dayBefore(v.date))[1].who;
+  NPCS.forEach((c, i) => {
+    let s, possessed = false;
+    if (night && ev && ev.who === c.id) {
+      const e = EV[ev.type]; possessed = true;
+      s = { x:e.x, y:e.y, rot: e.march ? [0,90,180,270][Math.floor(now/1600) % 4] : e.rot, pose:'stand' };
+    } else s = dayPose(k, c.bed, c.id, v, i + 3, { lazy: k === 'wake' && c.id === lazyId, act: npcAct(c, v) });
+    if (s.pose === 'lie') lyingBeds.add(c.bed);
+    placeUnit(c.id, s, { img:c.img, npc:true, possessed, sleep: night, seen, label: npcLabel(c) + (possessed ? ' · ???' : ''), check:false });
+  });
+  // humans
+  ppl.forEach(p => {
+    const pr = p.presence; const b = pr.bed;
+    const mine = p.isMe;
+    const s = dayPose(k, b, p.peer, v, b, { act: pr.act || 'bed', steps: (k === 'rehab') ? (pr.steps || 0) : null, lazy: k === 'wake' && !(pr.done === v.key) });
+    if (s.pose === 'lie') lyingBeds.add(b);
+    if (mine && S.bubbles.me == null) {}
+    S.seen[p.peer] = S.seen[p.peer] || {};
+    if (pr.emoteAt && pr.emoteAt !== S.seen[p.peer].emoteAt && pr.emote) S.bubbles[p.peer] = { t: String(pr.emote).slice(0,8), until: now + 3200 };
+    S.seen[p.peer].emoteAt = pr.emoteAt;
+    placeUnit(p.peer, s, { me:mine, sleep:night, seen, label:(mine ? '나 · ' : '') + cleanName(pr.name), check: pr.done && pr.done === v.key && !['free','night'].includes(k) });
+  });
+  // nurse
+  {
+    let s;
+    if (night) s = ev && ev.type === 'window' ? { x:50, y:93, rot:0, pose:'stand' } : { x: 50, y: 20 + ((Math.floor(now/2500)*9) % 62), rot: 0, pose:'stand' };
+    else if (k === 'vitals' || k === 'meds') { const b = [0,1,2,3,4,5,6,7,9,10,11,12,13,14,15][Math.floor(now/3500) % 15]; s = bedSpot(b, 'stand'); s.x = bedL(b) ? 44 : 56; }
+    else s = { x: 50, y: 88, rot: 0, pose:'stand' };
+    placeUnit(NURSE.id, s, { nurse:true, seen, label: '간호장교 유정연' });
+  }
+  // doctor during rounds
+  if (k === 'rounds') { const b = Math.floor(now/4000) % 16; const s = bedSpot(b === 8 ? 9 : b, 'stand'); s.x = bedL(b) ? 44 : 56; placeUnit('doc', s, { doc:true, seen, label:'군의관' }); }
+  // long-term patient
+  if (night && ev && ev.type === 'window') { const e = EV.window; placeUnit(PATIENT.id, { x:e.x, y:e.y, rot:0, pose:'stand' }, { ghost:true, possessed:true, seen, label: clues.chart ? '유재훈?' : '장기 입원 환자' }); }
+  for (const [id, el] of unitEls) if (!seen.has(id)) { el.remove(); unitEls.delete(id); }
+  // bed visuals
+  bedEls.forEach((el,b) => {
+    el.querySelector('.sh').className = 'sh ' + (lyingBeds.has(b) || (b === 8 && !(ev && ev.type === 'window')) ? 'open' : 'fold');
+    el.querySelector('.nm').textContent = (b === 8 || occupant[b]) ? '' : '빈 침대';
+    el.style.opacity = occupant[b] || b === 8 ? 1 : .8;
+  });
+  // solo
+  const solo = $('solo'); solo.hidden = !(S.entered && ppl.length <= 1);
+  solo.textContent = S.room ? '입원 동기는 아직 없어요 · 들어오면 왼쪽 빈 침대에 보여요' : '혼자 보는 화면 · 신병즈와만 지내요';
+  // task
+  const sig = JSON.stringify([v.key, ev && ev.key, ev && ev.left, S.entered, S.done[v.key], S.ate[v.key], S.steps, S.wobble, S.act, S.roundsAns, S.thermo.val, pres.saw, ppl.map(p => [p.peer, p.presence.saw]), v.left, !!clues.chart]);
+  if (sig !== lastTaskSig && !S.thermo.t0) { lastTaskSig = sig; $('task').innerHTML = taskHTML(v, ev); $('task').classList.toggle('alert', cardIsAlert(v, ev)); bindThermo(); }
+  const ns = JSON.stringify(Object.keys(clues));
+  if (ns !== lastNotes) { lastNotes = ns; renderNotes(); }
+}
+function npcAct(c, v){
+  if (v.p.k !== 'free') return 'bed';
+  const h = hash(c.id + Math.floor(Date.now()/600000));
+  return ['bed','nap','tv','tv','lounge'][h % 5];
+}
+
+/* ---------- 체온계 (길게 누르기) ---------- */
+function bindThermo(){
+  const b = document.getElementById('thermo'); if (!b) return;
+  let raf = 0;
+  const stop = () => { if (!S.thermo.t0) return; cancelAnimationFrame(raf); if (!S.thermo.val) { S.thermo.t0 = 0; const t = document.getElementById('thv'); if (t) t.textContent = '--.-℃'; b.textContent = '다시 눌러서 재기'; } };
+  b.addEventListener('pointerdown', e => {
+    e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch(_){}
+    S.thermo.t0 = performance.now();
+    const loop = () => {
+      const p = (performance.now() - S.thermo.t0) / 3000; const t = document.getElementById('thv');
+      if (t) t.textContent = (34 + Math.min(1, p) * 2.6 + Math.random()*.05).toFixed(1) + '℃';
+      if (p >= 1) {
+        S.thermo.val = (36.3 + Math.random()*.5).toFixed(1); S.thermo.t0 = 0;
+        const v = view(); const who = npcById(nightPlan(dayBefore(v.date))[0].who);
+        addClue('vitals', `간호장교 유정연: 어젯밤 ${npcLabel(who)} 체온이 잠깐 34도까지 떨어졌대요. 기계 고장이겠죠?`);
+        finish(v); return;
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+  });
+  b.addEventListener('pointerup', stop); b.addEventListener('pointercancel', stop); b.addEventListener('pointerleave', stop);
+  b.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !S.thermo.t0) { e.preventDefault(); b.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1 })); setTimeout(() => {}, 0); } });
+}
+
+/* ---------- actions ---------- */
+let lastEmote = 0;
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-emote],[data-act]'); if (!t) return;
+  const v = view();
+  if (t.dataset.emote) {
+    if (!S.entered || Date.now() - lastEmote < 900) return;
+    lastEmote = Date.now();
+    push({ emote: t.dataset.emote, emoteAt: Date.now() });
+    S.bubbles.me = null;
+    if (v.p.k !== 'night') { const c = rnd(NPCS); setTimeout(() => { S.bubbles[c.id] = { t: rnd(c.replies), until: Date.now() + 3200 }; render(); }, 1100); }
+    return;
+  }
+  const a = t.dataset.act;
+  if (a === 'wake' || a === 'meds') finish(v);
+  else if (a === 'eat') { S.ate[v.key] = (S.ate[v.key]||0) + 1; if (S.ate[v.key] >= 2) finish(v); else render(); }
+  else if (a === 'ans') {
+    S.roundsAns = t.dataset.a;
+    if (S.roundsAns === 'night') addClue('rounds', '군의관이 커튼 쳐진 침대 얘기를 피했다. "그 환자는 내 담당이 아니야."');
+    finish(v);
+  }
+  else if (a === 'foot') {
+    const f = t.dataset.f;
+    if (f === S.lastFoot) { S.wobble = true; S.steps = Math.max(0, S.steps - 2); }
+    else { S.wobble = false; S.steps++; }
+    S.lastFoot = f;
+    if (S.steps >= 20 && !S.done[v.key]) { S.done[v.key] = true; push(v.preview ? { steps:S.steps } : { steps:S.steps, done:v.key }); }
+    else push({ steps: S.steps });
+  }
+  else if (a === 'act') {
+    S.act = t.dataset.v;
+    if (S.act === 'peek') addClue('chart', "장기 입원 환자 차트: 입원일 칸이 지워져 있고, 소속 부대에 '신화'라고만 적혀 있다. 환자명은 유재훈.");
+    push({ act: S.act });
+  }
+  else if (a === 'witness') {
+    const ev = activeEvent(v); if (!ev) return;
+    const txt = clueText(ev.type, ev.who, ev.t);
+    if (!clues[ev.type]) { clues[ev.type] = { t: txt, at: Date.now(), key: ev.key }; store.set('gh.clues', JSON.stringify(clues)); }
+    S.done[ev.key] = true;
+    if (!ev.key.startsWith('preview')) push({ saw: ev.key }); else render();
+  }
+  else if (a === 'toss') push({ emote:'(자는 척)', emoteAt: Date.now() });
+});
+$('curtain').addEventListener('click', () => {
+  const v = view();
+  if (v.p.k === 'free' && S.entered) { S.act = 'peek'; addClue('chart', "장기 입원 환자 차트: 입원일 칸이 지워져 있고, 소속 부대에 '신화'라고만 적혀 있다. 환자명은 유재훈."); push({ act:'peek' }); }
+  else { S.bubbles[NURSE.id] = { t: v.p.k === 'night' ? '병실 밖으로 나오지 마세요' : '그 침대는 면회 사절이에요', until: Date.now() + 3200 }; render(); }
+});
+
+/* ---------- 병실 배정 ---------- */
+function hashWard(){ const m = /^#ward-(\d{1,2})$/.exec(location.hash); return m ? Math.max(1, Number(m[1])) : null; }
+function othersIn(w){ return S.room ? S.room.peers().filter(p => !p.sameTab && p.presence && p.presence.ward === w && typeof p.presence.bed === 'number') : []; }
+function freeBed(w){ const used = new Set(othersIn(w).map(p => p.presence.bed)); for (let b=0;b<HUMAN_MAX;b++) if (!used.has(b)) return b; return -1; }
+let suppressHash = false;
+function placeIn(w){
+  let ward = w, b = freeBed(ward);
+  while (b < 0) { ward++; b = freeBed(ward); }
+  S.ward = ward; S.bed = b;
+  if (location.hash !== '#ward-' + ward) { suppressHash = true; location.hash = 'ward-' + ward; }
+  push({ ward, bed: b });
+}
+window.addEventListener('hashchange', () => { if (suppressHash) { suppressHash = false; return; } const w = hashWard(); if (S.entered && w && w !== S.ward) placeIn(w); });
+function autoWard(){
+  const c = {}; if (S.room) for (const p of S.room.peers()) { if (p.sameTab) continue; const w = p.presence && p.presence.ward; if (typeof w === 'number') c[w] = (c[w]||0) + 1; }
+  let w = 1; while ((c[w]||0) >= HUMAN_MAX) w++; return w;
+}
+function resolveConflict(){
+  if (!S.entered || S.bed == null || !S.room) return;
+  const myPeer = (S.room.peers().find(p => p.sameTab) || {}).peer;
+  if (othersIn(S.ward).some(p => p.presence.bed === S.bed && myPeer && p.peer < myPeer)) placeIn(S.ward);
+}
+
+/* ---------- gate ---------- */
+$('nameIn').value = S.name;
+let roomResolve; const roomReady = new Promise(r => roomResolve = r);
+setTimeout(() => roomResolve(), 4000);
+$('gform').addEventListener('submit', async e => {
+  e.preventDefault();
+  const nm = cleanName($('nameIn').value.trim()); S.name = nm; store.set('gh.name', nm);
+  $('enterBtn').disabled = true; $('enterBtn').textContent = '병실 배정 중…';
+  await roomReady;
+  if (S.room) await new Promise(r => setTimeout(r, 1200));
+  S.entered = true; pres.name = nm;
+  if (S.room) S.room.presence({ ...pres }).catch(()=>{});
+  placeIn(hashWard() || autoWard());
+  $('gate').hidden = true;
+  [['bn','오, 신입 환자다!',300],['ms','어서 와, 여기 천국이야',1700],['ig','이 병동 소문 들었어?',3100],['dw','밤엔… 조심해요',4500],['jy','밤에는 병실 밖으로 나오지 마세요',5900]]
+    .forEach(([id,t,ms]) => setTimeout(() => { S.bubbles[id] = { t, until: Date.now() + 3200 }; render(); }, ms));
+});
+
+/* ---------- 실시간 연결 ----------
+ * 1) claude.ai 안에서는 room 기능을 씁니다.
+ * 2) 자체 서버에 올리면 window.SINBYEONG_REALTIME_URL ('auto' 또는 wss://주소)로 WebSocket 서버에 붙습니다.
+ *    server/server.js 가 같은 프로토콜을 구현합니다 (README 참고).
+ * 3) 둘 다 없으면 혼자 보기 모드로 동작합니다. */
+function wsRoom(url){
+  let ws = null, you = null, list = [], conn = false, retry = 0;
+  let pf = [], cf = []; const mine = {};
+  const emitPeers = () => pf.forEach(f => { try { f(api.peers()); } catch(e){} });
+  const emitConn = () => cf.forEach(f => { try { f(conn); } catch(e){} });
+  function open(){
+    try { ws = new WebSocket(url); } catch(e) { return; }
+    ws.onopen = () => { conn = true; retry = 0; if (Object.keys(mine).length) ws.send(JSON.stringify({ t:'presence', patch: mine })); emitConn(); };
+    ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch(_) { return; } if (m.you) you = m.you; if (m.t === 'peers') { list = Array.isArray(m.peers) ? m.peers : []; emitPeers(); } };
+    ws.onclose = () => { conn = false; emitConn(); setTimeout(open, Math.min(15000, 1000 * 2 ** retry++)); };
+  }
+  const api = {
+    peers: () => list.map(p => ({ peer: p.peer, sameTab: p.peer === you, presence: p.presence || {}, updatedAt: p.updatedAt })),
+    presence: patch => { Object.assign(mine, patch); if (conn) ws.send(JSON.stringify({ t:'presence', patch })); return Promise.resolve(); },
+    onPeers: f => { pf.push(f); return () => { pf = pf.filter(x => x !== f); }; },
+    onConnection: f => { cf.push(f); return () => { cf = cf.filter(x => x !== f); }; },
+    connected: () => conn,
+  };
+  open();
+  return api;
+}
+async function connectRealtime(){
+  try { if (window.claude && window.claude.use) { const r = await window.claude.use('room'); if (r) return r; } } catch(e) {}
+  let url = window.SINBYEONG_REALTIME_URL;
+  if (url === 'auto') url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/realtime';
+  return url ? wsRoom(url) : null;
+}
+(async () => {
+  let room = null;
+  try { room = await connectRealtime(); } catch(e) { room = null; }
+  S.room = room;
+  $('gload').textContent = room ? '병동 문이 열렸습니다' : '혼자 보기 모드로 열립니다';
+  roomResolve();
+  if (!room) { render(); return; }
+  room.onPeers(() => { resolveConflict(); render(); }, () => render());
+  room.onConnection(() => render(), () => render());
+  if (S.entered) room.presence({ ...pres }).catch(()=>{});
+  render();
+})();
+
+/* ---------- 수정 의견 ---------- */
+let commentsApi = null;
+(async () => {
+  try { commentsApi = window.claude && window.claude.use ? await window.claude.use('comments') : null; } catch(e) { commentsApi = null; }
+  $('fbPin').hidden = !commentsApi;
+})();
+$('fbPin').addEventListener('click', async () => {
+  try {
+    const r = await commentsApi.openComposer({ element: $('scene') });
+    if (!r.opened) $('fbMsg').textContent = '댓글 창을 열지 못했어요. 페이지를 한 번 누른 뒤 다시 눌러 주세요.';
+  } catch(e) {
+    $('fbPin').hidden = true;
+    $('fbMsg').textContent = '이 보기에서는 댓글을 달 수 없어요. 직접 적어서 복사해 주세요.';
+  }
+});
+$('fbCopy').addEventListener('click', () => {
+  const v = view(); const ta = $('fbText'); const body = ta.value.trim();
+  if (!body) { $('fbMsg').textContent = '의견을 먼저 적어 주세요.'; ta.focus(); return; }
+  const txt = `[신병 군병원 피드백]\n화면: ${v.p.n} (${v.p.s}${v.preview ? ', 미리보기' : ''}) · 확인 시각 ${$('clock').textContent} KST\n의견: ${body}`;
+  navigator.clipboard.writeText(txt).then(() => { $('fbMsg').textContent = '복사했어요. 메일이나 메신저에 붙여 넣어 보내 주세요.'; })
+    .catch(() => { ta.value = txt; ta.focus(); ta.select(); $('fbMsg').textContent = '선택해 두었어요. 직접 복사해 주세요.'; });
+});
+
+let lastIdx = nowInfo().idx;
+setInterval(() => {
+  const n = nowInfo();
+  if (n.idx !== lastIdx) { lastIdx = n.idx; resetLocal(); if (S.entered) push({ steps:0, act:'bed' }); S.act = 'bed'; }
+  render();
+}, 1000);
+render();
+})();
+</script>
+
+</body>
+</html>
