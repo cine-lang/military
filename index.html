@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>신병 군병원</title>
+<title>신병 더 무비</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
@@ -190,7 +190,11 @@ textarea{width:100%;min-height:76px;margin-top:4px;background:#0f1617;color:var(
 .loading{font-size:13px;color:var(--mute)}
 @media (prefers-reduced-motion:reduce){.unit,.body,.bed .sh,.curtain{transition:none}.bub,.zz,.night.flick,.unit.possessed .body::after,.tv.static{animation:none}}
 </style>
-<script>window.SINBYEONG_REALTIME_URL = null; // GitHub Pages(정적): 혼자 보기 모드. 실시간 서버를 두면 'wss://주소/realtime' 으로 변경</script>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+// GitHub Pages용 실시간 연결: 공개 MQTT 중계 서버(계정 불필요, 무료·무보증). 정식 오픈 전 관리형 서비스로 교체 권장.
+window.SINBYEONG_MQTT = { prefix: 'cinelang/sinbyeong-movie/v1', urls: ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'] };
+</script>
 </head>
 <body>
 
@@ -255,7 +259,7 @@ textarea{width:100%;min-height:76px;margin-top:4px;background:#0f1617;color:var(
 
 <div class="gate" id="gate">
   <div class="gbox">
-    <div class="gtitle">신병 군병원<small>군병원에 귀신이 산다</small></div>
+    <div class="gtitle">신병 더 무비<small>군병원에 귀신이 산다</small></div>
     <p class="gsub">훈련 중 사고로 신병즈 단체 입원.<br>훈련 없는 꿀 같은 병가인 줄 알았는데,<br>밤마다 이 병동에선 이상한 일이 벌어진다.</p>
     <form class="band" id="gform">
       <div class="bc"></div>
@@ -882,8 +886,51 @@ function wsRoom(url){
   open();
   return api;
 }
+/* 공개 MQTT 중계(정적 호스팅용): 각 탭이 자기 상태를 retained 메시지로 올리고, 끊기면 last will로 지운다. */
+function mqttRoom(cfg){
+  const me = 'p' + Math.random().toString(36).slice(2, 10);
+  const base = String(cfg.prefix || 'sinbyeong').replace(/\/+$/, '') + '/p/';
+  const urls = cfg.urls || [];
+  const map = new Map(); const mine = {};
+  let client = null, conn = false, urlIdx = 0, pubTimer = 0, pf = [], cf = [];
+  const emitPeers = () => { const l = api.peers(); pf.forEach(f => { try { f(l); } catch(e){} }); };
+  const emitConn = () => cf.forEach(f => { try { f(conn); } catch(e){} });
+  const clean = o => { const out = {}; for (const [k, v] of Object.entries(o).slice(0, 20)) { if (k.length > 24) continue; if (v === null || typeof v === 'boolean' || (typeof v === 'number' && isFinite(v))) out[k] = v; else if (typeof v === 'string') out[k] = v.slice(0, 40); } return out; };
+  const pub = () => { if (client && conn) client.publish(base + me, JSON.stringify({ presence: mine, updatedAt: Date.now() }), { qos: 0, retain: true }); };
+  function start(){
+    if (!window.mqtt || !urls.length) return;
+    const c = window.mqtt.connect(urls[urlIdx % urls.length], {
+      clientId: 'sb_' + me + Math.random().toString(36).slice(2, 6), clean: true, keepalive: 30, reconnectPeriod: 0, connectTimeout: 8000,
+      will: { topic: base + me, payload: '', qos: 0, retain: true } });
+    client = c;
+    c.on('connect', () => { conn = true; c.subscribe(base + '+'); pub(); emitConn(); });
+    c.on('message', (topic, buf) => {
+      const id = topic.slice(base.length); if (!id || id.includes('/')) return;
+      if (!buf || !buf.length) { if (map.delete(id)) emitPeers(); return; }
+      if (buf.length > 2048) return;
+      let m; try { m = JSON.parse(buf.toString()); } catch(e) { return; }
+      if (!m || !m.presence || typeof m.presence !== 'object') return;
+      const at = Number(m.updatedAt) || 0; if (Date.now() - at > 90000) return; // 오래된 흔적은 무시
+      map.set(id, { presence: clean(m.presence), updatedAt: at, seen: Date.now() }); emitPeers();
+    });
+    const down = () => { if (client !== c) return; client = null; conn = false; emitConn(); try { c.end(true); } catch(e){} urlIdx++; setTimeout(start, Math.min(15000, 1500 * urlIdx)); };
+    c.on('close', down); c.on('error', down);
+  }
+  setInterval(() => { pub(); let ch = false; const now = Date.now(); for (const [id, p] of map) if (id !== me && now - p.seen > 75000) { map.delete(id); ch = true; } if (ch) emitPeers(); }, 25000);
+  window.addEventListener('pagehide', () => { try { if (client && conn) client.publish(base + me, '', { qos: 0, retain: true }); } catch(e){} });
+  const api = {
+    peers: () => [...map].map(([id, p]) => ({ peer: id, sameTab: id === me, presence: p.presence, updatedAt: p.updatedAt })),
+    presence: patch => { Object.assign(mine, patch); clearTimeout(pubTimer); pubTimer = setTimeout(pub, 120); return Promise.resolve(); },
+    onPeers: f => { pf.push(f); return () => { pf = pf.filter(x => x !== f); }; },
+    onConnection: f => { cf.push(f); return () => { cf = cf.filter(x => x !== f); }; },
+    connected: () => conn,
+  };
+  start();
+  return api;
+}
 async function connectRealtime(){
   try { if (window.claude && window.claude.use) { const r = await window.claude.use('room'); if (r) return r; } } catch(e) {}
+  if (window.SINBYEONG_MQTT && window.mqtt) return mqttRoom(window.SINBYEONG_MQTT);
   let url = window.SINBYEONG_REALTIME_URL;
   if (url === 'auto') url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/realtime';
   return url ? wsRoom(url) : null;
