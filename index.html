@@ -234,7 +234,7 @@ window.SINBYEONG_MQTT = { prefix: 'cinelang/sinbyeong-movie/v1', urls: ['wss://b
 
 <div class="app">
   <header class="bar">
-    <div class="logo"><i></i><span>신병 군병원</span> <small>국군양천병원 7병동</small></div>
+    <div class="logo"><i></i><span>신병 더 무비</span> <small>국군양천병원 7병동</small></div>
     <div class="chips">
       <span class="chip"><span class="live" id="liveDot"></span><b id="wardName">병실 배정 전</b> · 입원 동기 <span id="headcount">0/6</span></span>
       <span class="chip"><span class="clock" id="clock">--:--</span> <span class="small">KST</span></span>
@@ -1056,7 +1056,7 @@ $('fbPin').addEventListener('click', async () => {
 $('fbCopy').addEventListener('click', () => {
   const v = view(); const ta = $('fbText'); const body = ta.value.trim();
   if (!body) { $('fbMsg').textContent = '의견을 먼저 적어 주세요.'; ta.focus(); return; }
-  const txt = `[신병 군병원 피드백]\n화면: ${v.p.n} (${v.p.s}${v.preview ? ', 미리보기' : ''}) · 확인 시각 ${$('clock').textContent} KST\n의견: ${body}`;
+  const txt = `[신병 더 무비 피드백]\n화면: ${v.p.n} (${v.p.s}${v.preview ? ', 미리보기' : ''}) · 확인 시각 ${$('clock').textContent} KST\n의견: ${body}`;
   navigator.clipboard.writeText(txt).then(() => { $('fbMsg').textContent = '복사했어요. 메일이나 메신저에 붙여 넣어 보내 주세요.'; })
     .catch(() => { ta.value = txt; ta.focus(); ta.select(); $('fbMsg').textContent = '선택해 두었어요. 직접 복사해 주세요.'; });
 });
