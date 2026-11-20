@@ -173,6 +173,39 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .emotes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .emotes .btn{padding:8px 4px;font-size:13px}
 textarea{width:100%;min-height:76px;margin-top:4px;background:#0f1617;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:9px 10px;font:inherit;resize:vertical}
+.dock{display:none}
+.dock-title{font-size:12.5px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dock-title b{color:var(--ink)}
+.dock.alert .dock-title b{color:#f08c7b}
+.dock-acts{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.dock-acts:empty{display:none}
+.dock-acts .btn{flex:0 0 auto;padding:10px 13px;font-size:14px;white-space:nowrap}
+.dock-acts .btn[aria-pressed="true"]{background:var(--exit);color:#07321b;border-color:var(--exit)}
+.dock-emo{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.dock-emo .btn{padding:6px 4px;font-size:12.5px;font-weight:500}
+.thermo{touch-action:none;-webkit-touch-callout:none}
+.tap{cursor:pointer}
+@media (max-width:760px){
+  body{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  .dock{display:flex;flex-direction:column;gap:7px;position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(18,26,27,.96);border-top:1px solid var(--line);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    padding:8px max(12px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+  .dock.alert{border-top-color:rgba(224,83,63,.7)}
+  .emocard{display:none}
+  .sched{scrollbar-width:none}
+  .app{gap:8px;padding-block:8px 12px}
+  .bar{gap:6px 10px;flex-wrap:nowrap}
+  .logo{font-size:19px;flex:0 0 auto}
+  .logo small{display:none}
+  .chips{flex-wrap:nowrap;gap:5px;min-width:0;overflow-x:auto;scrollbar-width:none}
+  .chip{font-size:11.5px;padding:3px 7px}
+  .clock{font-size:12.5px}
+  .slot{padding:3px 7px}
+  .slot small{font-size:10px}
+  .slot span{font-size:11.5px}
+  .pvbar{font-size:11.5px;padding:4px 8px;gap:6px}
+  .pvbar button{padding:2px 8px;font-size:11.5px}
+}
 .foot{font-size:12px;color:var(--dim);line-height:1.6}
 .teaser{margin-top:10px;padding:10px 12px;border-radius:4px;background:rgba(224,83,63,.1);border:1px solid rgba(224,83,63,.45);font-size:13px}
 /* gate */
@@ -227,6 +260,16 @@ window.SINBYEONG_MQTT = { prefix: 'cinelang/sinbyeong-movie/v1', urls: ['wss://b
         <div class="exit">비상구</div>
         <div class="solo" id="solo" hidden></div>
       </div>
+      <div class="dock" id="dock">
+        <div class="dock-title" id="dockTitle"></div>
+        <div class="dock-acts" id="dockActs"></div>
+        <div class="dock-emo">
+          <button class="btn" data-emote="충성!" type="button">충성!</button>
+          <button class="btn" data-emote="하암…" type="button">하품</button>
+          <button class="btn" data-emote="아야야…" type="button">아야</button>
+          <button class="btn" data-emote="무서워…" type="button">무서워</button>
+        </div>
+      </div>
     </div>
     <aside class="panel">
       <section class="card" id="task" aria-live="polite" data-comment-target></section>
@@ -234,7 +277,7 @@ window.SINBYEONG_MQTT = { prefix: 'cinelang/sinbyeong-movie/v1', urls: ['wss://b
         <div class="eyebrow">괴담 수사 노트 · <span id="clueCount">0/8</span></div>
         <ul class="notes" id="notes"></ul>
       </section>
-      <section class="card">
+      <section class="card emocard">
         <div class="eyebrow">말 대신</div>
         <p class="p" style="margin:4px 0 10px">병실엔 채팅이 없습니다. 같은 병실 동기에게는 이것만 보여요.</p>
         <div class="emotes">
@@ -243,6 +286,7 @@ window.SINBYEONG_MQTT = { prefix: 'cinelang/sinbyeong-movie/v1', urls: ['wss://b
           <button class="btn" data-emote="아야야…" type="button">아야</button>
           <button class="btn" data-emote="무서워…" type="button">무서워</button>
         </div>
+        <p class="small" style="margin:10px 0 0">단축키: 숫자 1~9 행동 선택 · Q W E R 표현 · 체온은 스페이스를 길게</p>
       </section>
       <section class="card" id="fbCard">
         <div class="eyebrow">수정 의견</div>
@@ -504,6 +548,9 @@ const bedEls = [];
     sc.appendChild(b);
   });
 })();
+tapAct($('tv'), 'tv');
+tapAct(document.querySelector('.station'), 'lounge');
+bedEls.forEach((el, b) => { el.addEventListener('click', () => { if (b === S.bed) { const v = view(); if (v.p.k === 'free' && S.entered) { S.act = S.act === 'bed' ? 'nap' : 'bed'; push({ act: S.act }); } } }); });
 function resetLocal(){ S.steps = 0; S.lastFoot = null; S.thermo = { t0:0, val:null }; S.roundsAns = null; S.chartOpen = false; }
 $('pvexit').addEventListener('click', () => { S.preview = null; resetLocal(); render(); });
 
@@ -544,8 +591,8 @@ function taskHTML(v, ev){
         + `<div class="big mono">${th.val}℃</div><div class="quote">유정연: 정상이에요. …근데 어젯밤 ${npcLabel(who)} 체온이 잠깐 34도까지 떨어졌대요. 기계 고장이겠죠?</div>`
         + '<div class="ok">측정 완료</div>';
     }
-    return head('체온·혈압 측정', '간호장교 유정연이 체온계를 건넵니다. 버튼을 3초 동안 누르고 있으세요.')
-      + `<div class="big mono" id="thv">--.-℃</div><button class="btn pri thermo" id="thermo" type="button">눌러서 체온 재기</button>`;
+    return head('체온·혈압 측정', '간호장교 유정연이 체온계를 건넵니다. 버튼을 3초 동안 꾹 누르고 있으세요.')
+      + `<div class="big mono" id="thv">--.-℃</div><button class="btn pri thermo" id="thermo" type="button">꾹 눌러서 체온 재기</button>`;
   }
   if (k === 'meal') {
     const it = menu(v), st = S.ate[v.key] || 0;
@@ -735,7 +782,7 @@ function render(){
   solo.textContent = S.room ? '입원 동기는 아직 없어요 · 들어오면 왼쪽 빈 침대에 보여요' : '혼자 보는 화면 · 신병즈와만 지내요';
   // task
   const sig = JSON.stringify([v.key, ev && ev.key, ev && ev.left, S.entered, S.done[v.key], S.ate[v.key], S.steps, S.wobble, S.act, S.roundsAns, S.thermo.val, pres.saw, ppl.map(p => [p.peer, p.presence.saw]), v.left, !!clues.chart]);
-  if (sig !== lastTaskSig && !S.thermo.t0) { lastTaskSig = sig; $('task').innerHTML = taskHTML(v, ev); $('task').classList.toggle('alert', cardIsAlert(v, ev)); bindThermo(); }
+  if (sig !== lastTaskSig && !S.thermo.t0) { lastTaskSig = sig; $('task').innerHTML = taskHTML(v, ev); $('task').classList.toggle('alert', cardIsAlert(v, ev)); buildDock(); bindThermo(); }
   const ns = JSON.stringify(Object.keys(clues));
   if (ns !== lastNotes) { lastNotes = ns; renderNotes(); }
 }
@@ -747,28 +794,71 @@ function npcAct(c, v){
 
 /* ---------- 체온계 (길게 누르기) ---------- */
 function bindThermo(){
-  const b = document.getElementById('thermo'); if (!b) return;
-  let raf = 0;
-  const stop = () => { if (!S.thermo.t0) return; cancelAnimationFrame(raf); if (!S.thermo.val) { S.thermo.t0 = 0; const t = document.getElementById('thv'); if (t) t.textContent = '--.-℃'; b.textContent = '다시 눌러서 재기'; } };
-  b.addEventListener('pointerdown', e => {
-    e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch(_){}
-    S.thermo.t0 = performance.now();
-    const loop = () => {
-      const p = (performance.now() - S.thermo.t0) / 3000; const t = document.getElementById('thv');
-      if (t) t.textContent = (34 + Math.min(1, p) * 2.6 + Math.random()*.05).toFixed(1) + '℃';
-      if (p >= 1) {
-        S.thermo.val = (36.3 + Math.random()*.5).toFixed(1); S.thermo.t0 = 0;
-        const v = view(); const who = npcById(nightPlan(dayBefore(v.date))[0].who);
-        addClue('vitals', `간호장교 유정연: 어젯밤 ${npcLabel(who)} 체온이 잠깐 34도까지 떨어졌대요. 기계 고장이겠죠?`);
-        finish(v); return;
-      }
+  const setT = txt => document.querySelectorAll('#thv, .thv').forEach(el => { el.textContent = (el.classList.contains('thv') ? ' · ' : '') + txt; });
+  document.querySelectorAll('.thermo').forEach(b => {
+    if (b.dataset.bound) return; b.dataset.bound = '1';
+    let raf = 0;
+    const stop = () => { if (!S.thermo.t0) return; cancelAnimationFrame(raf); if (!S.thermo.val) { S.thermo.t0 = 0; setT('--.-℃'); document.querySelectorAll('.thermo').forEach(x => { x.textContent = '다시 꾹 눌러서 재기'; }); } };
+    const start = () => {
+      if (S.thermo.t0 || S.thermo.val) return;
+      S.thermo.t0 = performance.now();
+      const loop = () => {
+        const p = (performance.now() - S.thermo.t0) / 3000;
+        setT((34 + Math.min(1, p) * 2.6 + Math.random()*.05).toFixed(1) + '℃');
+        if (p >= 1) {
+          S.thermo.val = (36.3 + Math.random()*.5).toFixed(1); S.thermo.t0 = 0;
+          const v = view(); const who = npcById(nightPlan(dayBefore(v.date))[0].who);
+          addClue('vitals', `간호장교 유정연: 어젯밤 ${npcLabel(who)} 체온이 잠깐 34도까지 떨어졌대요. 기계 고장이겠죠?`);
+          finish(v); return;
+        }
+        raf = requestAnimationFrame(loop);
+      };
       raf = requestAnimationFrame(loop);
     };
-    raf = requestAnimationFrame(loop);
+    b.addEventListener('pointerdown', e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch(_){} start(); });
+    b.addEventListener('pointerup', stop); b.addEventListener('pointercancel', stop); b.addEventListener('pointerleave', stop);
+    b.addEventListener('contextmenu', e => e.preventDefault());
+    b.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); start(); } });
+    b.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') stop(); });
   });
-  b.addEventListener('pointerup', stop); b.addEventListener('pointercancel', stop); b.addEventListener('pointerleave', stop);
-  b.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !S.thermo.t0) { e.preventDefault(); b.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1 })); setTimeout(() => {}, 0); } });
 }
+
+/* ---------- 모바일 조작 바 + 단축키 ---------- */
+function buildDock(){
+  const t = $('task'), acts = $('dockActs'), title = $('dockTitle');
+  acts.innerHTML = ''; title.textContent = '';
+  [...t.querySelectorAll('button[data-act], .thermo')].forEach(b => {
+    const c = document.createElement('button'); c.type = 'button'; c.className = b.className; c.textContent = b.textContent;
+    for (const [k, val] of Object.entries(b.dataset)) if (k !== 'bound') c.dataset[k] = val;
+    if (b.hasAttribute('aria-pressed')) c.setAttribute('aria-pressed', b.getAttribute('aria-pressed'));
+    acts.appendChild(c);
+  });
+  const h = t.querySelector('.h'), ok = t.querySelector('.ok');
+  const bb = document.createElement('b'); bb.textContent = h ? h.textContent : ''; title.appendChild(bb);
+  if (t.querySelector('#thv')) { const sp = document.createElement('span'); sp.className = 'thv mono'; sp.textContent = ' · ' + (S.thermo.val ? S.thermo.val + '℃' : '--.-℃'); title.appendChild(sp); }
+  else if (ok) title.append(' · ' + ok.textContent);
+  else if (view().p.k === 'free' && S.entered) title.append(' · 병실의 TV·간호사실·내 침대를 눌러도 이동해요');
+  $('dock').classList.toggle('alert', t.classList.contains('alert'));
+}
+function tapAct(el, a){
+  el.classList.add('tap');
+  el.addEventListener('click', () => {
+    const v = view(); if (v.p.k !== 'free' || !S.entered) return;
+    S.act = (a === 'bed' && S.act === 'bed') ? 'nap' : a;
+    push({ act: S.act });
+  });
+}
+document.addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input, textarea')) return;
+  if (e.metaKey || e.ctrlKey || e.altKey || !S.entered) return;
+  if (/^[1-9]$/.test(e.key)) {
+    const b = $('dockActs').querySelectorAll('button')[Number(e.key) - 1];
+    if (b && !b.classList.contains('thermo')) { e.preventDefault(); b.click(); }
+    return;
+  }
+  const em = { q:'충성!', w:'하암…', e:'아야야…', r:'무서워…' }[e.key.toLowerCase()];
+  if (em) { const b = document.querySelector('.emocard [data-emote="' + em + '"]'); if (b) b.click(); }
+});
 
 /* ---------- actions ---------- */
 let lastEmote = 0;
